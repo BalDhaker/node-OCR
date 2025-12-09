@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ollama Text Extraction</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .container {
+      text-align: center;
+    }
+    .upload-area {
+      border: 2px dashed #ccc;
+      border-radius: 10px;
+      padding: 20px;
+      margin: 20px 0;
+      cursor: pointer;
+    }
+    .upload-area:hover {
+      border-color: #007bff;
+    }
+    #imagePreview {
+      max-width: 100%;
+      margin-top: 15px;
+      display: none;
+    }
+    #extractedText {
+      width: 100%;
+      height: 150px;
+      margin-top: 20px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-family: monospace;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    .loading {
+      display: none;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Text Extraction</h1>
+    <form id="uploadForm" enctype="multipart/form-data">
+      <div class="upload-area" id="dropZone">
+        <p>Click or drag an image here</p>
+        <input type="file" id="imageInput" name="image" accept="image/*" hidden>
+      </div>
+      <img id="imagePreview" alt="Preview">
+      <br>
+      <button type="submit">Extract Text</button>
+      <div class="loading" id="loading">Processing...</div>
+    </form>
+    <textarea id="extractedText" placeholder="Extracted text will appear here..."></textarea>
+  </div>
+
+  <script>
+    const imageInput = document.getElementById('imageInput');
+    const dropZone = document.getElementById('dropZone');
+    const imagePreview = document.getElementById('imagePreview');
+    const uploadForm = document.getElementById('uploadForm');
+    const extractedText = document.getElementById('extractedText');
+    const loading = document.getElementById('loading');
+    dropZone.addEventListener('click', () => imageInput.click());
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = '#007bff';
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.style.borderColor = '#ccc';
+    });
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = '#ccc';
+      if (e.dataTransfer.files.length) {
+        imageInput.files = e.dataTransfer.files;
+        previewImage(e.dataTransfer.files[0]);
+      }
+    });
+    imageInput.addEventListener('change', (e) => {
+      if (e.target.files[0]) {
+        previewImage(e.target.files[0]);
+      }
+    });
+    function previewImage(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        imagePreview.src = e.target.result;
+        imagePreview.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    }
+    uploadForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!imageInput.files[0]) {
+        alert('Please select an image first!');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('image', imageInput.files[0]);
+
+      try {
+        loading.style.display = 'block';
+        extractedText.value = 'Processing...';
+
+        const response = await fetch('/extract-text', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          extractedText.value = data.extractedText || 'No text found.';
+        } else {
+          extractedText.value = `Error: ${data.error}`;
+        }
+      } catch (error) {
+        extractedText.value = `Error: ${error.message}`;
+      } finally {
+        loading.style.display = 'none';
+      }
+    });
+  </script>
+</body>
+</html>
