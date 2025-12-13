@@ -1,20 +1,22 @@
 {
-  "name": "ocr",
+  "name": "ocr-llm-node",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "llm.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node index.js",
-    "llm": "node llm.js"
+    "start": "node server.mjs"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@google/genai": "^1.0.0",
     "axios": "^1.13.2",
+    "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "multer": "^2.0.2",
+    "ollama": "^0.6.3",
     "tesseract.js": "^6.0.1"
   }
 }

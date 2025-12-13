@@ -1,55 +1,144 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Text Extractor</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        #result {
-            margin-top: 20px;
-            padding: 10px;
-            border: 1px solid #ccc;
-        }
-    </style>
+  <title>Invoice OCR – Multi-LLM Tester</title>
+  <style>
+    body { font-family: Arial; margin: 40px; }
+    .container { max-width: 800px; }
+    .section { margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+    label { display: block; margin: 8px 0 4px 0; font-weight: bold; }
+    input, select, textarea { width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box; }
+    button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+    button:hover { background: #0056b3; }
+    pre { background: #f4f4f4; padding: 15px; border-radius: 3px; overflow-x: auto; }
+    .hidden { display: none; }
+    .option-field { margin-bottom: 10px; }
+  </style>
 </head>
 <body>
-    <h1>Upload an Image to Extract Text</h1>
-    <form id="upload-form" enctype="multipart/form-data">
-        <input type="file" id="image" name="image" accept="image/*" required>
-        <button type="submit">Extract Text</button>
-    </form>
-    <h2>Extracted Text:</h2>
-    <div id="result"></div>
 
-    <script>
-        document.getElementById('upload-form').addEventListener('submit', async (event) => {
-            event.preventDefault();
+<div class="container">
+  <h2>Invoice OCR – Multi-LLM Tester</h2>
+  
+  <div class="section">
+    <h3>1. Select Endpoint</h3>
+    <label for="endpoint">Choose Parser:</label>
+    <select id="endpoint" onchange="updateOptionsVisibility()">
+      <option value="/parse/gemma">Gemma (Local HTTP – Default)</option>
+      <option value="/parse/ollama-local">Ollama Local</option>
+      <!-- <option value="/parse/ollama-cloud">Ollama Cloud</option> -->
+      <option value="/parse/gemini">Google Gemini</option>
+      <!-- <option value="/parse">Legacy (Backward Compat)</option> -->
+    </select>
+  </div>
 
-            const formData = new FormData();
-            formData.append('image', document.getElementById('image').files[0]);
+  <div class="section">
+    <h3>2. Optional Configuration</h3>
+    
+    <div id="ollama-local-opts" class="option-field hidden">
+      <label for="ollama-local-base">Ollama Local Base URL (default: http://localhost:11434):</label>
+      <input type="text" id="ollama-local-base" placeholder="http://localhost:11434">
+      <label for="ollama-local-model">Model (default: gemma3):</label>
+      <input type="text" id="ollama-local-model" placeholder="gemma3">
+    </div>
 
-            try {
-                const response = await fetch('/api/upload', {
-                    method: 'POST',
-                    body: formData
-                });
+    <div id="ollama-cloud-opts" class="option-field hidden">
+      <label for="ollama-cloud-base">Ollama Cloud Base URL:</label>
+      <input type="text" id="ollama-cloud-base" placeholder="https://api.ollama.ai">
+      <label for="ollama-cloud-api">API Key (or set OLLAMA_API_KEY env):</label>
+      <input type="password" id="ollama-cloud-api" placeholder="your-api-key or use default">
+      <label for="ollama-cloud-model">Model (default: gemma3):</label>
+      <input type="text" id="ollama-cloud-model" placeholder="gemma3">
+    </div>
 
-                if (response.ok) {
-                    const data = await response.json();
-                    document.getElementById('result').innerText = data.text;
-                } else {
-                    console.error('Error response from server:', await response.text());
-                    document.getElementById('result').innerText = 'Error extracting text.';
-                }
-            } catch (error) {
-                console.error(error);
-                document.getElementById('result').innerText = 'An error occurred.';
-            }
-        });
-    </script>
+    <div id="gemini-opts" class="option-field hidden">
+      <label for="gemini-api">API Key (or set GOOGLE_API_KEY env):</label>
+      <input type="password" id="gemini-api" placeholder="your-google-api-key or use default">
+      <label for="gemini-model">Model (default: models/text-bison-001):</label>
+      <input type="text" id="gemini-model" placeholder="gemini-2.5-flash">
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>3. Upload Invoice</h3>
+    <label for="file">Select Invoice Image:</label>
+    <input type="file" id="file" accept="image/*">
+    <button onclick="upload()">Upload & Parse</button>
+  </div>
+
+  <div class="section">
+    <h3>4. Result</h3>
+    <pre id="output">Waiting for upload...</pre>
+  </div>
+</div>
+
+<script>
+function updateOptionsVisibility() {
+  const endpoint = document.getElementById("endpoint").value;
+  document.getElementById("ollama-local-opts").classList.add("hidden");
+  document.getElementById("ollama-cloud-opts").classList.add("hidden");
+  document.getElementById("gemini-opts").classList.add("hidden");
+
+  if (endpoint === "/parse/ollama-local") {
+    document.getElementById("ollama-local-opts").classList.remove("hidden");
+  } else if (endpoint === "/parse/ollama-cloud") {
+    document.getElementById("ollama-cloud-opts").classList.remove("hidden");
+  } else if (endpoint === "/parse/gemini") {
+    document.getElementById("gemini-opts").classList.remove("hidden");
+  }
+}
+
+async function upload() {
+  const file = document.getElementById("file").files[0];
+  if (!file) {
+    document.getElementById("output").textContent = "Error: Please select a file.";
+    return;
+  }
+
+  const endpoint = document.getElementById("endpoint").value;
+  const form = new FormData();
+  form.append("invoice", file);
+
+  // Append optional fields based on selected endpoint
+  if (endpoint === "/parse/ollama-local") {
+    const baseUrl = document.getElementById("ollama-local-base").value;
+    const model = document.getElementById("ollama-local-model").value;
+    if (baseUrl) form.append("baseUrl", baseUrl);
+    if (model) form.append("model", model);
+  } else if (endpoint === "/parse/ollama-cloud") {
+    const baseUrl = document.getElementById("ollama-cloud-base").value;
+    const apiKey = document.getElementById("ollama-cloud-api").value;
+    const model = document.getElementById("ollama-cloud-model").value;
+    if (baseUrl) form.append("baseUrl", baseUrl);
+    if (apiKey) form.append("apiKey", apiKey);
+    if (model) form.append("model", model);
+  } else if (endpoint === "/parse/gemini") {
+    const apiKey = document.getElementById("gemini-api").value;
+    const model = document.getElementById("gemini-model").value;
+    if (apiKey) form.append("apiKey", apiKey);
+    if (model) form.append("model", model);
+  }
+
+  document.getElementById("output").textContent = "Processing...";
+
+  try {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      body: form
+    });
+
+    const data = await res.json();
+    document.getElementById("output").textContent = JSON.stringify(data, null, 2);
+  } catch (err) {
+    document.getElementById("output").textContent = "Error: " + err.message;
+  }
+}
+
+// Initialize on load
+window.onload = () => {
+  updateOptionsVisibility();
+};
+</script>
+
 </body>
 </html>

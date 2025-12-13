@@ -1,3 +1,5 @@
 /*.traineddata
 node_modules
 Sample-Images
+.env
+uploads
